@@ -30,12 +30,12 @@ const Scanner = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Mock database of items
-  const mockItems: ScannedItem[] = [
+  const [mockItems, setMockItems] = useState<ScannedItem[]>([
     { id: "1", barcode: "123456789012", name: "Laptop Battery", currentStock: 25, location: "Warehouse A" },
     { id: "2", barcode: "123456789013", name: "USB Cable", currentStock: 150, location: "Warehouse A" },
     { id: "3", barcode: "123456789014", name: "Wireless Mouse", currentStock: 45, location: "Store Front" },
     { id: "4", barcode: "123456789015", name: "Keyboard", currentStock: 30, location: "Warehouse B" }
-  ];
+  ]);
 
   const startScanning = async () => {
     try {
@@ -122,6 +122,9 @@ const Scanner = () => {
 
     // Update the item in our mock data
     const updatedItem = { ...selectedItem, currentStock: newStock };
+    setMockItems(prev => prev.map(item => 
+      item.id === selectedItem.id ? updatedItem : item
+    ));
     
     // Add to scanned items history
     setScannedItems(prev => [
@@ -142,6 +145,14 @@ const Scanner = () => {
     setSelectedItem(null);
     setAdjustmentQty(0);
     setAdjustmentReason("");
+  };
+
+  const clearScannedItems = () => {
+    setScannedItems([]);
+    toast({
+      title: "History Cleared",
+      description: "Scanned items history has been cleared"
+    });
   };
 
   useEffect(() => {
@@ -169,12 +180,18 @@ const Scanner = () => {
           <CardContent className="space-y-4">
             <div className="relative bg-slate-100 rounded-lg aspect-video flex items-center justify-center overflow-hidden">
               {isScanning ? (
-                <video
-                  ref={videoRef}
-                  className="w-full h-full object-cover"
-                  playsInline
-                  muted
-                />
+                <>
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 border-4 border-red-500 border-dashed animate-pulse" />
+                  <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
+                    Scanning...
+                  </div>
+                </>
               ) : (
                 <div className="text-center">
                   <QrCode className="w-16 h-16 text-slate-400 mx-auto mb-4" />
@@ -223,29 +240,43 @@ const Scanner = () => {
         {/* Recent Scans */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Recent Scans
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Recent Scans
+              </CardTitle>
+              {scannedItems.length > 0 && (
+                <Button variant="outline" size="sm" onClick={clearScannedItems}>
+                  Clear History
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {scannedItems.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No recent scans</p>
+                <p className="text-sm mt-1">Scan items to see them here</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {scannedItems.map((item, index) => (
-                  <div key={`${item.id}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
+                  <div key={`${item.id}-${index}`} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+                    <div className="flex-1">
                       <h4 className="font-medium">{item.name}</h4>
                       <p className="text-sm text-slate-600">
                         Stock: {item.currentStock} | {item.location}
                       </p>
+                      <p className="text-xs text-slate-500 font-mono">
+                        {item.barcode}
+                      </p>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {new Date().toLocaleTimeString()}
+                    <div className="text-xs text-slate-500 text-right">
+                      <div>{new Date().toLocaleTimeString()}</div>
+                      <Badge variant="outline" className="mt-1">
+                        Updated
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -254,6 +285,32 @@ const Scanner = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Available Items for Testing */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Available Items for Testing</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {mockItems.map((item) => (
+              <div key={item.id} className="border rounded-lg p-3">
+                <h4 className="font-medium">{item.name}</h4>
+                <p className="text-sm text-slate-600">Stock: {item.currentStock}</p>
+                <p className="text-xs text-slate-500 font-mono">{item.barcode}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 w-full"
+                  onClick={() => handleBarcodeDetected(item.barcode)}
+                >
+                  Quick Scan
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stock Adjustment Modal */}
       <Dialog open={showAdjustModal} onOpenChange={setShowAdjustModal}>
@@ -267,6 +324,7 @@ const Scanner = () => {
                 <h3 className="font-semibold">{selectedItem.name}</h3>
                 <p className="text-sm text-slate-600">Current Stock: {selectedItem.currentStock}</p>
                 <p className="text-sm text-slate-600">Location: {selectedItem.location}</p>
+                <p className="text-xs text-slate-500 font-mono">Barcode: {selectedItem.barcode}</p>
               </div>
 
               <div>
@@ -274,6 +332,7 @@ const Scanner = () => {
                 <Input
                   id="adjustment-qty"
                   type="number"
+                  min="1"
                   value={adjustmentQty}
                   onChange={(e) => setAdjustmentQty(parseInt(e.target.value) || 0)}
                   placeholder="Enter quantity"
@@ -312,7 +371,12 @@ const Scanner = () => {
 
               <Button 
                 variant="ghost" 
-                onClick={() => setShowAdjustModal(false)}
+                onClick={() => {
+                  setShowAdjustModal(false);
+                  setSelectedItem(null);
+                  setAdjustmentQty(0);
+                  setAdjustmentReason("");
+                }}
                 className="w-full"
               >
                 Cancel

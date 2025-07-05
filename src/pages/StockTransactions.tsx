@@ -4,6 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Plus, 
   Search, 
@@ -13,12 +18,35 @@ import {
   RotateCcw
 } from "lucide-react";
 
+interface Transaction {
+  id: number;
+  type: "stock-in" | "stock-out" | "adjustment" | "transfer";
+  item: string;
+  sku: string;
+  quantity: number;
+  location: string;
+  reason: string;
+  user: string;
+  timestamp: string;
+  reference: string;
+}
+
 const StockTransactions = () => {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [showNewTransactionModal, setShowNewTransactionModal] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    type: "stock-in" as const,
+    item: "",
+    sku: "",
+    quantity: 0,
+    location: "",
+    reason: "",
+  });
 
   // Mock transaction data
-  const transactions = [
+  const [transactions, setTransactions] = useState<Transaction[]>([
     {
       id: 1,
       type: "stock-in",
@@ -79,7 +107,7 @@ const StockTransactions = () => {
       timestamp: "2024-01-14 02:10 PM",
       reference: "PO-002"
     }
-  ];
+  ]);
 
   const filteredTransactions = transactions.filter(txn => {
     const matchesSearch = txn.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,6 +117,76 @@ const StockTransactions = () => {
     if (filterType === "all") return matchesSearch;
     return matchesSearch && txn.type === filterType;
   });
+
+  const handleExport = () => {
+    const csv = [
+      ["Type", "Item", "SKU", "Quantity", "Location", "Reason", "User", "Date & Time", "Reference"],
+      ...filteredTransactions.map(txn => [
+        txn.type,
+        txn.item,
+        txn.sku,
+        txn.quantity.toString(),
+        txn.location,
+        txn.reason,
+        txn.user,
+        txn.timestamp,
+        txn.reference
+      ])
+    ].map(row => row.join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stock-transactions.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: "Stock transactions exported to CSV"
+    });
+  };
+
+  const handleNewTransaction = () => {
+    if (!newTransaction.item || !newTransaction.sku || newTransaction.quantity <= 0 || !newTransaction.location) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const transaction: Transaction = {
+      id: transactions.length + 1,
+      type: newTransaction.type,
+      item: newTransaction.item,
+      sku: newTransaction.sku,
+      quantity: newTransaction.type === "stock-out" ? -newTransaction.quantity : newTransaction.quantity,
+      location: newTransaction.location,
+      reason: newTransaction.reason || `${newTransaction.type.charAt(0).toUpperCase() + newTransaction.type.slice(1)} transaction`,
+      user: "Current User",
+      timestamp: new Date().toLocaleString(),
+      reference: `TXN-${Date.now()}`
+    };
+
+    setTransactions(prev => [transaction, ...prev]);
+    setShowNewTransactionModal(false);
+    setNewTransaction({
+      type: "stock-in",
+      item: "",
+      sku: "",
+      quantity: 0,
+      location: "",
+      reason: "",
+    });
+
+    toast({
+      title: "Transaction Created",
+      description: `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)} transaction for ${transaction.item} has been recorded`
+    });
+  };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -107,13 +205,13 @@ const StockTransactions = () => {
 
   const getTransactionBadge = (type: string) => {
     const configs = {
-      "stock-in": { variant: "default", className: "bg-green-100 text-green-800", label: "Stock In" },
-      "stock-out": { variant: "secondary", className: "bg-red-100 text-red-800", label: "Stock Out" },
-      "adjustment": { variant: "outline", className: "bg-orange-100 text-orange-800", label: "Adjustment" },
-      "transfer": { variant: "outline", className: "bg-blue-100 text-blue-800", label: "Transfer" }
+      "stock-in": { variant: "default" as const, className: "bg-green-100 text-green-800", label: "Stock In" },
+      "stock-out": { variant: "secondary" as const, className: "bg-red-100 text-red-800", label: "Stock Out" },
+      "adjustment": { variant: "outline" as const, className: "bg-orange-100 text-orange-800", label: "Adjustment" },
+      "transfer": { variant: "outline" as const, className: "bg-blue-100 text-blue-800", label: "Transfer" }
     };
     
-    const config = configs[type] || configs["stock-in"];
+    const config = configs[type as keyof typeof configs] || configs["stock-in"];
     return (
       <Badge variant={config.variant} className={config.className}>
         {config.label}
@@ -121,7 +219,7 @@ const StockTransactions = () => {
     );
   };
 
-  const getQuantityDisplay = (quantity: number, type: string) => {
+  const getQuantityDisplay = (quantity: number) => {
     const isPositive = quantity > 0;
     const displayQty = Math.abs(quantity);
     
@@ -142,11 +240,11 @@ const StockTransactions = () => {
           <p className="text-slate-600 mt-1">Track all inventory movements and adjustments</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Button>
+          <Button onClick={() => setShowNewTransactionModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Transaction
           </Button>
@@ -285,7 +383,7 @@ const StockTransactions = () => {
                       <div className="text-sm font-mono text-slate-600">{txn.sku}</div>
                     </td>
                     <td className="py-4 px-4">
-                      {getQuantityDisplay(txn.quantity, txn.type)}
+                      {getQuantityDisplay(txn.quantity)}
                     </td>
                     <td className="py-4 px-4 text-slate-700">{txn.location}</td>
                     <td className="py-4 px-4 text-slate-700">{txn.reason}</td>
@@ -303,6 +401,108 @@ const StockTransactions = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* New Transaction Modal */}
+      <Dialog open={showNewTransactionModal} onOpenChange={setShowNewTransactionModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Transaction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="transaction-type">Transaction Type</Label>
+              <Select
+                value={newTransaction.type}
+                onValueChange={(value) => setNewTransaction(prev => ({ ...prev, type: value as any }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="stock-in">Stock In</SelectItem>
+                  <SelectItem value="stock-out">Stock Out</SelectItem>
+                  <SelectItem value="adjustment">Adjustment</SelectItem>
+                  <SelectItem value="transfer">Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="item-name">Item Name *</Label>
+              <Input
+                id="item-name"
+                value={newTransaction.item}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, item: e.target.value }))}
+                placeholder="Enter item name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="item-sku">SKU *</Label>
+              <Input
+                id="item-sku"
+                value={newTransaction.sku}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, sku: e.target.value }))}
+                placeholder="Enter SKU"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="quantity">Quantity *</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                value={newTransaction.quantity}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
+                placeholder="Enter quantity"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="location">Location *</Label>
+              <Select
+                value={newTransaction.location}
+                onValueChange={(value) => setNewTransaction(prev => ({ ...prev, location: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Main Warehouse">Main Warehouse</SelectItem>
+                  <SelectItem value="Service Bay">Service Bay</SelectItem>
+                  <SelectItem value="Storage Room">Storage Room</SelectItem>
+                  <SelectItem value="Store Front">Store Front</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="reason">Reason</Label>
+              <Textarea
+                id="reason"
+                value={newTransaction.reason}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder="Enter reason for transaction"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleNewTransaction} className="flex-1">
+                Create Transaction
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowNewTransactionModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
