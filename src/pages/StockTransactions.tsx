@@ -163,7 +163,7 @@ const StockTransactions = () => {
       type: newTransaction.type,
       item: newTransaction.item,
       sku: newTransaction.sku,
-      quantity: newTransaction.type === "stock-out" ? -newTransaction.quantity : newTransaction.quantity,
+      quantity: newTransaction.type === "stock-out" || newTransaction.type === "adjustment" ? -newTransaction.quantity : newTransaction.quantity,
       location: newTransaction.location,
       reason: newTransaction.reason || `${newTransaction.type.charAt(0).toUpperCase() + newTransaction.type.slice(1)} transaction`,
       user: "Current User",

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -57,7 +58,7 @@ const Settings = () => {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [locationForm, setLocationForm] = useState({
     name: "",
-    type: "warehouse" as const,
+    type: "warehouse" as "warehouse" | "store" | "truck" | "other",
     address: ""
   });
 
@@ -86,7 +87,7 @@ const Settings = () => {
   const [userForm, setUserForm] = useState({
     name: "",
     email: "",
-    role: "staff" as const,
+    role: "staff" as "admin" | "manager" | "staff",
     active: true
   });
 
