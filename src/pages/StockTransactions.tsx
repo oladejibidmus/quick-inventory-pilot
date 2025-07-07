@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,8 @@ interface Transaction {
   user: string;
   timestamp: string;
 }
+
+type TransactionType = "stock-in" | "stock-out" | "adjustment";
 
 const StockTransactions = () => {
   const { toast } = useToast();
@@ -72,7 +75,7 @@ const StockTransactions = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [newTransaction, setNewTransaction] = useState({
-    type: "stock-in",
+    type: "stock-in" as TransactionType,
     item: "",
     sku: "",
     quantity: 0,
@@ -205,7 +208,7 @@ const StockTransactions = () => {
               <Label htmlFor="transaction-type">Type</Label>
               <Select
                 value={newTransaction.type}
-                onValueChange={(value) => setNewTransaction(prev => ({ ...prev, type: value as any }))}
+                onValueChange={(value: TransactionType) => setNewTransaction(prev => ({ ...prev, type: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
