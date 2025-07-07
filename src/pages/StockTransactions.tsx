@@ -158,12 +158,19 @@ const StockTransactions = () => {
       return;
     }
 
+    let quantity = newTransaction.quantity;
+    
+    // Apply negative quantity for stock-out and adjustment transactions
+    if (newTransaction.type === "stock-out" || newTransaction.type === "adjustment") {
+      quantity = -quantity;
+    }
+
     const transaction: Transaction = {
       id: transactions.length + 1,
       type: newTransaction.type,
       item: newTransaction.item,
       sku: newTransaction.sku,
-      quantity: newTransaction.type === "stock-out" || newTransaction.type === "adjustment" ? -newTransaction.quantity : newTransaction.quantity,
+      quantity: quantity,
       location: newTransaction.location,
       reason: newTransaction.reason || `${newTransaction.type.charAt(0).toUpperCase() + newTransaction.type.slice(1)} transaction`,
       user: "Current User",
